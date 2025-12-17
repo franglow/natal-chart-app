@@ -1,15 +1,93 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import StarBackground from './components/StarBackground';
-import { analyzeChart, BirthData } from './services/geminiService';
+import { analyzeChart, BirthData, getDetectedLanguage } from './services/geminiService';
 import MarkdownRenderer from './components/MarkdownRenderer';
 
 type Mode = 'image' | 'manual';
+
+const translations = {
+  en: {
+    subtitle: "Natal Chart AI Interpretation",
+    visualChart: "Visual Chart",
+    birthDetails: "Birth Details",
+    cosmicVision: "Cosmic Vision",
+    scanPrompt: "Scan your natal chart image for an instant reading.",
+    selectImage: "Select Image",
+    decodeImage: "Decode Image",
+    birthDate: "Birth Date",
+    birthTime: "Birth Time (Exact)",
+    birthLocation: "Birth Location (City, Country)",
+    generateChart: "Generate Chart",
+    consulting: "Consulting the Records...",
+    natalReport: "Natal Report",
+    downloadPDF: "Download PDF Report",
+    generating: "Generating...",
+    newConsultation: "New Consultation",
+    shareApp: "Share App",
+    install: "Install",
+    installTitle: "Take the App With You",
+    installSubtitle: "To install on other devices, send them the link using the 'Share' button.",
+    copied: "Link Copied!",
+    understand: "Understood",
+    errors: {
+      dateRequired: "Date is required.",
+      dateInvalid: "Invalid date format.",
+      timeRequired: "Time is required.",
+      locationRequired: "Enter a valid location (min. 3 chars).",
+      generic: "An unexpected shadow fell across the stars.",
+      pdfError: "There was an error generating the PDF. Please try again."
+    },
+    help: {
+      android: "Tap the three dots (⋮) and select 'Install app' or 'Add to home screen'.",
+      ios: "Tap the 'Share' button (square with arrow) and choose 'Add to Home Screen'.",
+      desktop: "Click the 'Install' icon in the address bar."
+    }
+  },
+  es: {
+    subtitle: "Interpretación de Carta Natal con IA",
+    visualChart: "Carta Visual",
+    birthDetails: "Datos de Nacimiento",
+    cosmicVision: "Visión Cósmica",
+    scanPrompt: "Escanea la imagen de tu carta natal para una lectura instantánea.",
+    selectImage: "Seleccionar Imagen",
+    decodeImage: "Decodificar Imagen",
+    birthDate: "Fecha de Nacimiento",
+    birthTime: "Hora de Nacimiento (Exacta)",
+    birthLocation: "Lugar de Nacimiento (Ciudad, País)",
+    generateChart: "Generar Carta",
+    consulting: "Consultando los Registros...",
+    natalReport: "Reporte Natal",
+    downloadPDF: "Descargar Reporte PDF",
+    generating: "Generando...",
+    newConsultation: "Nueva Consulta",
+    shareApp: "Compartir App",
+    install: "Instalar",
+    installTitle: "Lleva la App Contigo",
+    installSubtitle: "Para instalarla en otros dispositivos, envíales el enlace usando el botón 'Compartir'.",
+    copied: "¡Copiado!",
+    understand: "Entendido",
+    errors: {
+      dateRequired: "La fecha es obligatoria.",
+      dateInvalid: "Formato de fecha inválido.",
+      timeRequired: "La hora es obligatoria.",
+      locationRequired: "Ingresa una ubicación válida (mín. 3 caracteres).",
+      generic: "Una sombra inesperada cayó sobre las estrellas.",
+      pdfError: "Hubo un error al generar el PDF. Inténtalo de nuevo."
+    },
+    help: {
+      android: "Toca los tres puntos (⋮) y selecciona 'Instalar aplicación' o 'Añadir a pantalla de inicio'.",
+      ios: "Toca el botón de Compartir (cuadrado con flecha) y elige 'Añadir a pantalla de inicio'.",
+      desktop: "Haz clic en el icono de Instalar en la barra de direcciones."
+    }
+  }
+};
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<Mode>('image');
   const [image, setImage] = useState<string | null>(null);
   const [birthData, setBirthData] = useState<BirthData>({ date: '', time: '', location: '' });
+  const [formErrors, setFormErrors] = useState<{date?: string; time?: string; location?: string}>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +97,11 @@ const App: React.FC = () => {
   const [copied, setCopied] = useState(false);
   
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Sync translation detection with the improved geminiService logic
+  const t = useMemo(() => {
+    return translations[getDetectedLanguage()];
+  }, []);
 
   useEffect(() => {
     const checkStandalone = () => {
@@ -43,9 +126,31 @@ const App: React.FC = () => {
     }
   };
 
+  const validateManualForm = (): boolean => {
+    const errors: {date?: string; time?: string; location?: string} = {};
+    
+    if (!birthData.date) {
+      errors.date = t.errors.dateRequired;
+    } else {
+      const dateObj = new Date(birthData.date);
+      if (isNaN(dateObj.getTime())) errors.date = t.errors.dateInvalid;
+    }
+
+    if (!birthData.time) {
+      errors.time = t.errors.timeRequired;
+    }
+
+    if (!birthData.location || birthData.location.trim().length < 3) {
+      errors.location = t.errors.locationRequired;
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (birthData.date && birthData.location) {
+    if (validateManualForm()) {
       startAnalysis(birthData);
     }
   };
@@ -60,16 +165,17 @@ const App: React.FC = () => {
       const analysis = await analyzeChart(dataToAnalyze as any);
       setResult(analysis);
     } catch (err: any) {
-      setError(err.message || "An unexpected shadow fell across the stars.");
+      setError(err.message || t.errors.generic);
     } finally {
       setLoading(false);
     }
   };
 
   const handleShare = async () => {
+    const isSpanish = getDetectedLanguage() === 'es';
     const shareData = {
       title: 'Celestial Insights',
-      text: 'Descubre tu destino con esta IA de Astrología.',
+      text: isSpanish ? 'Descubre tu destino con esta IA de Astrología.' : 'Discover your destiny with this Astrology AI.',
       url: window.location.origin + window.location.pathname,
     };
 
@@ -92,7 +198,7 @@ const App: React.FC = () => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }).catch(() => {
-      alert("No se pudo copiar el enlace. Por favor, copia la URL manualmente.");
+      alert("Error copying link.");
     });
   };
 
@@ -121,7 +227,7 @@ const App: React.FC = () => {
       }).catch((err: any) => {
         console.error("PDF Export Error:", err);
         setIsExporting(false);
-        alert("Hubo un error al generar el PDF. Inténtalo de nuevo.");
+        alert(t.errors.pdfError);
       });
     }, 100);
   };
@@ -136,7 +242,7 @@ const App: React.FC = () => {
             Celestial Insights
           </h1>
           <p className="text-xs md:text-sm text-amber-100/70 italic font-light tracking-widest uppercase">
-            Natal Chart AI Interpretation
+            {t.subtitle}
           </p>
         </header>
 
@@ -145,16 +251,16 @@ const App: React.FC = () => {
           <div className="flex justify-center mb-8 no-print">
             <div className="bg-black/40 backdrop-blur-md p-1 rounded-full border border-amber-900/30 flex gap-1">
               <button 
-                onClick={() => { setMode('image'); setResult(null); setError(null); }}
+                onClick={() => { setMode('image'); setResult(null); setError(null); setFormErrors({}); }}
                 className={`px-6 py-2 rounded-full text-xs md:text-sm font-cinzel tracking-widest transition-all ${mode === 'image' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-amber-100/50 hover:text-amber-100'}`}
               >
-                Visual Chart
+                {t.visualChart}
               </button>
               <button 
-                onClick={() => { setMode('manual'); setResult(null); setError(null); }}
+                onClick={() => { setMode('manual'); setResult(null); setError(null); setFormErrors({}); }}
                 className={`px-6 py-2 rounded-full text-xs md:text-sm font-cinzel tracking-widest transition-all ${mode === 'manual' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-amber-100/50 hover:text-amber-100'}`}
               >
-                Birth Details
+                {t.birthDetails}
               </button>
             </div>
           </div>
@@ -169,10 +275,10 @@ const App: React.FC = () => {
                     <svg className="w-12 h-12 md:w-16 md:h-16 text-amber-500/50 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
-                    <h2 className="text-xl md:text-2xl font-cinzel text-amber-100 mb-2">Cosmic Vision</h2>
-                    <p className="text-sm text-amber-100/60 mb-6 text-center max-w-sm">Scan your natal chart image for an instant reading.</p>
+                    <h2 className="text-xl md:text-2xl font-cinzel text-amber-100 mb-2">{t.cosmicVision}</h2>
+                    <p className="text-sm text-amber-100/60 mb-6 text-center max-w-sm">{t.scanPrompt}</p>
                     <label className="cursor-pointer bg-amber-600 hover:bg-amber-500 text-white px-8 py-3 rounded-full font-bold transition-all transform hover:scale-105 shadow-lg shadow-amber-900/20 active:scale-95 text-sm md:text-base">
-                      Select Image
+                      {t.selectImage}
                       <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                     </label>
                   </div>
@@ -195,7 +301,7 @@ const App: React.FC = () => {
                           onClick={() => startAnalysis()}
                           className="bg-gradient-to-r from-amber-700 to-amber-900 text-white px-10 py-4 rounded-full font-cinzel tracking-widest hover:scale-105 transition-all shadow-xl"
                         >
-                          Decode Image
+                          {t.decodeImage}
                         </button>
                       </div>
                     )}
@@ -206,33 +312,45 @@ const App: React.FC = () => {
               <form onSubmit={handleManualSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">Birth Date</label>
+                    <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">{t.birthDate}</label>
                     <input 
                       type="date" 
-                      required
-                      className="w-full bg-black/40 border border-amber-900/30 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100"
-                      onChange={(e) => setBirthData({...birthData, date: e.target.value})}
+                      className={`w-full bg-black/40 border ${formErrors.date ? 'border-red-500/50' : 'border-amber-900/30'} rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100`}
+                      value={birthData.date}
+                      onChange={(e) => {
+                        setBirthData({...birthData, date: e.target.value});
+                        if (formErrors.date) setFormErrors({...formErrors, date: undefined});
+                      }}
                     />
+                    {formErrors.date && <p className="text-red-400 text-[10px] uppercase tracking-wider ml-1">{formErrors.date}</p>}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">Birth Time (Exact)</label>
+                    <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">{t.birthTime}</label>
                     <input 
                       type="time" 
-                      required
-                      className="w-full bg-black/40 border border-amber-900/30 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100"
-                      onChange={(e) => setBirthData({...birthData, time: e.target.value})}
+                      className={`w-full bg-black/40 border ${formErrors.time ? 'border-red-500/50' : 'border-amber-900/30'} rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100`}
+                      value={birthData.time}
+                      onChange={(e) => {
+                        setBirthData({...birthData, time: e.target.value});
+                        if (formErrors.time) setFormErrors({...formErrors, time: undefined});
+                      }}
                     />
+                    {formErrors.time && <p className="text-red-400 text-[10px] uppercase tracking-wider ml-1">{formErrors.time}</p>}
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">Birth Location (City, Country)</label>
+                  <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">{t.birthLocation}</label>
                   <input 
                     type="text" 
                     placeholder="e.g. Buenos Aires, Argentina"
-                    required
-                    className="w-full bg-black/40 border border-amber-900/30 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100 placeholder:text-amber-100/20"
-                    onChange={(e) => setBirthData({...birthData, location: e.target.value})}
+                    className={`w-full bg-black/40 border ${formErrors.location ? 'border-red-500/50' : 'border-amber-900/30'} rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100 placeholder:text-amber-100/20`}
+                    value={birthData.location}
+                    onChange={(e) => {
+                      setBirthData({...birthData, location: e.target.value});
+                      if (formErrors.location) setFormErrors({...formErrors, location: undefined});
+                    }}
                   />
+                  {formErrors.location && <p className="text-red-400 text-[10px] uppercase tracking-wider ml-1">{formErrors.location}</p>}
                 </div>
                 {!result && !loading && (
                   <div className="flex justify-center pt-4">
@@ -240,7 +358,7 @@ const App: React.FC = () => {
                       type="submit"
                       className="bg-gradient-to-r from-amber-700 to-amber-900 text-white px-10 py-4 rounded-full font-cinzel tracking-widest hover:scale-105 transition-all shadow-xl"
                     >
-                      Generate Chart
+                      {t.generateChart}
                     </button>
                   </div>
                 )}
@@ -261,7 +379,7 @@ const App: React.FC = () => {
                 </svg>
               </div>
             </div>
-            <p className="text-amber-200 text-lg md:text-xl font-cinzel tracking-widest">Consulting the Records...</p>
+            <p className="text-amber-200 text-lg md:text-xl font-cinzel tracking-widest">{t.consulting}</p>
           </div>
         )}
 
@@ -273,7 +391,7 @@ const App: React.FC = () => {
             >
               <div className="hidden print:block text-center mb-8">
                 <h1 className="text-3xl font-cinzel text-amber-200">Celestial Insights</h1>
-                <p className="text-xs text-amber-100/60 uppercase tracking-widest">Natal Report • {new Date().toLocaleDateString()}</p>
+                <p className="text-xs text-amber-100/60 uppercase tracking-widest">{t.natalReport} • {new Date().toLocaleDateString()}</p>
                 <div className="w-24 h-px bg-amber-500/30 mx-auto mt-4"></div>
               </div>
               
@@ -290,22 +408,22 @@ const App: React.FC = () => {
                       <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Generando...
+                      {t.generating}
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
-                      Descargar Reporte PDF
+                      {t.downloadPDF}
                     </>
                   )}
                 </button>
                 <button 
-                  onClick={() => { setResult(null); setImage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  onClick={() => { setResult(null); setImage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); setFormErrors({}); }}
                   className="text-amber-400/50 hover:text-amber-400 font-cinzel tracking-[0.2em] uppercase text-xs transition-colors px-6 py-3"
                 >
-                  Nueva Consulta
+                  {t.newConsultation}
                 </button>
               </div>
             </div>
@@ -325,14 +443,14 @@ const App: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                ¡Copiado!
+                {t.copied}
               </>
             ) : (
               <>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                Compartir App
+                {t.shareApp}
               </>
             )}
           </button>
@@ -343,7 +461,7 @@ const App: React.FC = () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Instalar
+            {t.install}
           </button>
         </div>
         <div className="text-center text-amber-100/30 text-[10px] tracking-widest uppercase">
@@ -356,8 +474,8 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 no-print">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowHelp(false)}></div>
           <div className="relative bg-[#0a0a2a] border border-amber-500/30 rounded-[2.5rem] p-8 max-w-lg w-full shadow-[0_0_50px_rgba(252,211,77,0.1)] overflow-y-auto max-h-[90vh]">
-            <h2 className="text-3xl font-cinzel text-amber-200 mb-2 text-center">Lleva la App Contigo</h2>
-            <p className="text-amber-100/40 text-center text-xs mb-8 italic">Para instalarla en otros dispositivos, envíales el enlace usando el botón "Compartir".</p>
+            <h2 className="text-3xl font-cinzel text-amber-200 mb-2 text-center">{t.installTitle}</h2>
+            <p className="text-amber-100/40 text-center text-xs mb-8 italic">{t.installSubtitle}</p>
             
             <div className="space-y-8">
               <section>
@@ -365,7 +483,7 @@ const App: React.FC = () => {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.523 15.3414L20.355 20.2184C20.661 20.7514 20.478 21.4324 19.945 21.7384C19.412 22.0444 18.731 21.8614 18.425 21.3284L15.65 16.5164C14.542 17.1494 13.293 17.5 12 17.5C10.707 17.5 9.458 17.1494 8.35 16.5164L5.575 21.3284C5.269 21.8614 4.588 22.0444 4.055 21.7384C3.522 21.4324 3.339 20.7514 3.645 20.2184L6.477 15.3414C4.945 13.8444 4 11.7814 4 9.5C4 5.3584 7.358 2 11.5 2H12.5C16.642 2 20 5.3584 20 9.5C20 11.7814 19.055 13.8444 17.523 15.3414ZM12 15.5C15.3137 15.5 18 12.8137 18 9.5C18 6.1863 15.3137 3.5 12 3.5C8.6863 3.5 6 6.1863 6 9.5C6 12.8137 8.6863 15.5 12 15.5Z"/></svg>
                   Android (Chrome)
                 </h3>
-                <p className="text-sm text-amber-100/70 ml-7">Toca los tres puntos (⋮) en la esquina superior derecha y selecciona <strong>"Instalar aplicación"</strong> o "Añadir a pantalla de inicio".</p>
+                <p className="text-sm text-amber-100/70 ml-7">{t.help.android}</p>
               </section>
 
               <section>
@@ -373,7 +491,7 @@ const App: React.FC = () => {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 17 2.94 12.45 4.7 9.39C5.57 7.87 7.13 6.91 8.82 6.88C10.1 6.86 11.32 7.75 12.11 7.75C12.89 7.75 14.37 6.68 15.92 6.84C16.57 6.87 18.39 7.1 19.56 8.82C19.47 8.88 17.39 10.1 17.41 12.63C17.44 15.65 20.06 16.66 20.09 16.67C20.07 16.74 19.67 18.11 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z"/></svg>
                   iPhone / iPad (Safari)
                 </h3>
-                <p className="text-sm text-amber-100/70 ml-7">Toca el botón de <strong>Compartir</strong> (cuadrado con flecha hacia arriba) y elige <strong>"Añadir a pantalla de inicio"</strong>.</p>
+                <p className="text-sm text-amber-100/70 ml-7">{t.help.ios}</p>
               </section>
 
               <section>
@@ -381,7 +499,7 @@ const App: React.FC = () => {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 6h16v10H4V6zm16-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 15c-.55 0-1 .45-1 1h2c0-.55-.45-1-1-1z"/></svg>
                   Computadora (Chrome/Edge)
                 </h3>
-                <p className="text-sm text-amber-100/70 ml-7">Haz clic en el icono de <strong>Instalar</strong> (un símbolo de "+" o un ordenador pequeño) en la barra de direcciones.</p>
+                <p className="text-sm text-amber-100/70 ml-7">{t.help.desktop}</p>
               </section>
             </div>
 
@@ -389,7 +507,7 @@ const App: React.FC = () => {
               onClick={() => setShowHelp(false)}
               className="mt-10 w-full bg-amber-600 text-white py-3 rounded-full font-cinzel tracking-widest hover:bg-amber-500 transition-colors shadow-lg"
             >
-              Entendido
+              {t.understand}
             </button>
           </div>
         </div>

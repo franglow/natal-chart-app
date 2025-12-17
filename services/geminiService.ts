@@ -7,76 +7,95 @@ export interface BirthData {
   location: string;
 }
 
-export const analyzeChart = async (input: string | BirthData): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+/**
+ * Robustly detects the user's preferred language from the browser.
+ * Priority: navigator.languages array > navigator.language > fallback 'en'
+ */
+export const getDetectedLanguage = (): 'es' | 'en' => {
+  const supported = ['es', 'en'];
+  const preferred = navigator.languages || [navigator.language || 'en'];
   
+  for (const lang of preferred) {
+    const code = lang.split('-')[0].toLowerCase();
+    if (supported.includes(code)) return code as 'es' | 'en';
+  }
+  
+  return 'en';
+};
+
+export const analyzeChart = async (input: string | BirthData): Promise<string> => {
+  // Use a named parameter for apiKey as per @google/genai guidelines.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const langCode = getDetectedLanguage();
+  const languageName = langCode === 'es' ? 'Spanish' : 'English';
+
   const baseSystemPrompt = `
     Act as a world-class expert astrologer with deep knowledge in Western Natal Astrology.
     Use a mystical yet professional and empowering tone.
     Format the output with clear headers and bullet points. Use Markdown for styling.
+    IMPORTANT: You MUST write the entire response in ${languageName}.
   `;
 
-  let contents: any;
+  let parts: any[];
 
   if (typeof input === 'string') {
     // Image Analysis
-    contents = {
-      parts: [
-        {
-          inlineData: {
-            mimeType: 'image/png',
-            data: input,
-          },
+    parts = [
+      {
+        inlineData: {
+          mimeType: 'image/png',
+          data: input,
         },
-        { 
-          text: `${baseSystemPrompt}
-          Analyze the provided birth chart image. 
-          1. Identify the Big Three: Sun, Moon, and Rising signs.
-          2. Describe core personality traits.
-          3. Look for major aspects between personal planets.
-          4. Provide insights into Career, Relationships, and Life Purpose.` 
-        },
-      ],
-    };
+      },
+      { 
+        text: `${baseSystemPrompt}
+        Analyze the provided birth chart image. 
+        1. Identify the Big Three: Sun, Moon, and Rising signs.
+        2. Describe core personality traits.
+        3. Look for major aspects between personal planets.
+        4. Provide insights into Career, Relationships, and Life Purpose.` 
+      },
+    ];
   } else {
     // Manual Data Analysis
-    contents = {
-      contents: [{
-        parts: [{
-          text: `${baseSystemPrompt}
-          The user has provided their manual birth details:
-          - Date: ${input.date}
-          - Time: ${input.time}
-          - Location: ${input.location}
+    parts = [{
+      text: `${baseSystemPrompt}
+      The user has provided their manual birth details:
+      - Date: ${input.date}
+      - Time: ${input.time}
+      - Location: ${input.location}
 
-          Based on these details, please:
-          1. Calculate/Estimate the Big Three (Sun, Moon, and Rising sign).
-          2. Provide a deep interpretation of the personality based on the signs and likely house placements.
-          3. Discuss the energetic signature of this birth time.
-          4. Provide sections on:
-             - Core Essence (Sun)
-             - Emotional Landscape (Moon)
-             - The Mask You Wear (Rising)
-             - Destined Path & Career
-             - Relationship Needs`
-        }]
-      }]
-    };
+      Based on these details, please:
+      1. Calculate/Estimate the Big Three (Sun, Moon, and Rising sign).
+      2. Provide a deep interpretation of the personality based on the signs and likely house placements.
+      3. Discuss the energetic signature of this birth time.
+      4. Provide sections on:
+         - Core Essence (Sun)
+         - Emotional Landscape (Moon)
+         - The Mask You Wear (Rising)
+         - Destined Path & Career
+         - Relationship Needs`
+    }];
   }
 
   try {
+    // Using gemini-3-pro-preview for high-quality reasoning tasks.
     const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      ...(typeof input === 'string' ? contents : { contents: contents.contents }),
+      model: 'gemini-3-pro-preview',
+      contents: { parts },
     });
 
-    if (!response.text) {
-      throw new Error("The stars are silent. Please try again.");
+    const text = response.text;
+    if (!text) {
+      const errorMsg = langCode === 'es' ? "Las estrellas guardan silencio. Por favor, intenta de nuevo." : "The stars are silent. Please try again.";
+      throw new Error(errorMsg);
     }
 
-    return response.text;
+    return text;
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw new Error(error.message || "Failed to consult the heavens.");
+    const fallbackMsg = langCode === 'es' ? "Error al consultar los cielos." : "Failed to consult the heavens.";
+    throw new Error(error.message || fallbackMsg);
   }
 };
