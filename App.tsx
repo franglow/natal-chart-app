@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import StarBackground from './components/StarBackground';
-import { analyzeChart, BirthData, getDetectedLanguage } from './services/geminiService';
+import { analyzeChart, BirthData, getDetectedLanguage, searchLocations, LocationSuggestion } from './services/geminiService';
 import MarkdownRenderer from './components/MarkdownRenderer';
 
 type Mode = 'image' | 'manual';
@@ -18,6 +18,9 @@ const translations = {
     birthDate: "Birth Date",
     birthTime: "Birth Time (Exact)",
     birthLocation: "Birth Location (City, Country)",
+    locationPlaceholder: "Enter city (at least 3 chars)...",
+    searchingLocations: "Scanning coordinates...",
+    noResults: "No celestial match found.",
     generateChart: "Generate Chart",
     consulting: "Consulting the Records...",
     natalReport: "Natal Report",
@@ -34,7 +37,7 @@ const translations = {
       dateRequired: "Date is required.",
       dateInvalid: "Invalid date format.",
       timeRequired: "Time is required.",
-      locationRequired: "Enter a valid location (min. 3 chars).",
+      locationRequired: "Please select a specific location from the list.",
       generic: "An unexpected shadow fell across the stars.",
       pdfError: "There was an error generating the PDF. Please try again."
     },
@@ -55,6 +58,9 @@ const translations = {
     birthDate: "Fecha de Nacimiento",
     birthTime: "Hora de Nacimiento (Exacta)",
     birthLocation: "Lugar de Nacimiento (Ciudad, País)",
+    locationPlaceholder: "Escribe la ciudad (mín. 3 letras)...",
+    searchingLocations: "Escaneando coordenadas...",
+    noResults: "No se encontró coincidencia estelar.",
     generateChart: "Generar Carta",
     consulting: "Consultando los Registros...",
     natalReport: "Reporte Natal",
@@ -71,7 +77,7 @@ const translations = {
       dateRequired: "La fecha es obligatoria.",
       dateInvalid: "Formato de fecha inválido.",
       timeRequired: "La hora es obligatoria.",
-      locationRequired: "Ingresa una ubicación válida (mín. 3 caracteres).",
+      locationRequired: "Por favor, selecciona una ubicación de la lista.",
       generic: "Una sombra inesperada cayó sobre las estrellas.",
       pdfError: "Hubo un error al generar el PDF. Inténtalo de nuevo."
     },
@@ -84,33 +90,69 @@ const translations = {
 };
 
 const App: React.FC = () => {
-  const [mode, setMode] = useState<Mode>('image');
+  // Mode changed from 'image' to 'manual' to set 'Birth Details' as default
+  const [mode, setMode] = useState<Mode>('manual');
   const [image, setImage] = useState<string | null>(null);
   const [birthData, setBirthData] = useState<BirthData>({ date: '', time: '', location: '' });
   const [formErrors, setFormErrors] = useState<{date?: string; time?: string; location?: string}>({});
   const [loading, setLoading] = useState<boolean>(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   
+  // Autocomplete states
+  const [locationInput, setLocationInput] = useState('');
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isSearchingLocations, setIsSearchingLocations] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [locationSelected, setLocationSelected] = useState(false);
+  
   const reportRef = useRef<HTMLDivElement>(null);
+  const suggestionRef = useRef<HTMLDivElement>(null);
 
-  // Sync translation detection with the improved geminiService logic
   const t = useMemo(() => {
     return translations[getDetectedLanguage()];
   }, []);
 
+  // Handle clicks outside suggestions to close dropdown
   useEffect(() => {
-    const checkStandalone = () => {
-      if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
-        setIsStandalone(true);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionRef.current && !suggestionRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
       }
     };
-    checkStandalone();
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Debounced search for locations - triggers after 3rd character
+  useEffect(() => {
+    if (locationSelected) return; // Don't search if we just picked one
+
+    const timer = setTimeout(async () => {
+      const trimmed = locationInput.trim();
+      if (trimmed.length >= 3) {
+        setIsSearchingLocations(true);
+        const results = await searchLocations(trimmed);
+        setSuggestions(results);
+        setIsSearchingLocations(false);
+        setShowSuggestions(true);
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [locationInput, locationSelected]);
+
+  const handleLocationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocationInput(e.target.value);
+    setLocationSelected(false); // Reset selection flag as user is typing
+    if (birthData.location) setBirthData({ ...birthData, location: '' });
+  };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -131,16 +173,13 @@ const App: React.FC = () => {
     
     if (!birthData.date) {
       errors.date = t.errors.dateRequired;
-    } else {
-      const dateObj = new Date(birthData.date);
-      if (isNaN(dateObj.getTime())) errors.date = t.errors.dateInvalid;
     }
 
     if (!birthData.time) {
       errors.time = t.errors.timeRequired;
     }
 
-    if (!birthData.location || birthData.location.trim().length < 3) {
+    if (!birthData.location) {
       errors.location = t.errors.locationRequired;
     }
 
@@ -153,6 +192,14 @@ const App: React.FC = () => {
     if (validateManualForm()) {
       startAnalysis(birthData);
     }
+  };
+
+  const selectSuggestion = (suggestion: LocationSuggestion) => {
+    setBirthData({ ...birthData, location: suggestion.fullName });
+    setLocationInput(suggestion.fullName);
+    setLocationSelected(true);
+    setShowSuggestions(false);
+    if (formErrors.location) setFormErrors({ ...formErrors, location: undefined });
   };
 
   const startAnalysis = async (input: string | BirthData | null = null) => {
@@ -251,16 +298,16 @@ const App: React.FC = () => {
           <div className="flex justify-center mb-8 no-print">
             <div className="bg-black/40 backdrop-blur-md p-1 rounded-full border border-amber-900/30 flex gap-1">
               <button 
+                onClick={() => { setMode('manual'); setResult(null); setError(null); setFormErrors({}); setLocationInput(''); setLocationSelected(false); }}
+                className={`px-6 py-2 rounded-full text-xs md:text-sm font-cinzel tracking-widest transition-all ${mode === 'manual' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-amber-100/50 hover:text-amber-100'}`}
+              >
+                {t.birthDetails}
+              </button>
+              <button 
                 onClick={() => { setMode('image'); setResult(null); setError(null); setFormErrors({}); }}
                 className={`px-6 py-2 rounded-full text-xs md:text-sm font-cinzel tracking-widest transition-all ${mode === 'image' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-amber-100/50 hover:text-amber-100'}`}
               >
                 {t.visualChart}
-              </button>
-              <button 
-                onClick={() => { setMode('manual'); setResult(null); setError(null); setFormErrors({}); }}
-                className={`px-6 py-2 rounded-full text-xs md:text-sm font-cinzel tracking-widest transition-all ${mode === 'manual' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/40' : 'text-amber-100/50 hover:text-amber-100'}`}
-              >
-                {t.birthDetails}
               </button>
             </div>
           </div>
@@ -338,25 +385,74 @@ const App: React.FC = () => {
                     {formErrors.time && <p className="text-red-400 text-[10px] uppercase tracking-wider ml-1">{formErrors.time}</p>}
                   </div>
                 </div>
-                <div className="space-y-2">
+                
+                {/* Refined Location Field with Autocomplete */}
+                <div className="space-y-2 relative" ref={suggestionRef}>
                   <label className="text-amber-100/60 text-xs uppercase tracking-widest ml-1">{t.birthLocation}</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. Buenos Aires, Argentina"
-                    className={`w-full bg-black/40 border ${formErrors.location ? 'border-red-500/50' : 'border-amber-900/30'} rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100 placeholder:text-amber-100/20`}
-                    value={birthData.location}
-                    onChange={(e) => {
-                      setBirthData({...birthData, location: e.target.value});
-                      if (formErrors.location) setFormErrors({...formErrors, location: undefined});
-                    }}
-                  />
+                  <div className="relative group">
+                    <input 
+                      type="text" 
+                      placeholder={t.locationPlaceholder}
+                      className={`w-full bg-black/40 border ${formErrors.location ? 'border-red-500/50' : 'border-amber-900/30'} rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 transition-colors text-amber-100 placeholder:text-amber-100/20`}
+                      value={locationInput}
+                      onChange={handleLocationInputChange}
+                      onFocus={() => locationInput.length >= 3 && setShowSuggestions(true)}
+                    />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      {isSearchingLocations && (
+                        <div className="w-4 h-4 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin"></div>
+                      )}
+                      {birthData.location && (
+                        <svg className="w-5 h-5 text-green-500/60 animate-fade-in" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Refined Suggestions Dropdown */}
+                  {showSuggestions && (
+                    <div className="absolute z-[100] left-0 right-0 mt-2 bg-[#0a0a25] backdrop-blur-2xl border border-amber-500/30 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.9)] overflow-hidden max-h-64 overflow-y-auto animate-fade-in-up">
+                      {isSearchingLocations ? (
+                        <div className="px-5 py-8 text-center text-amber-100/50 italic flex flex-col items-center gap-3">
+                           <div className="w-6 h-6 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin"></div>
+                           <span className="text-xs uppercase tracking-widest">{t.searchingLocations}</span>
+                        </div>
+                      ) : suggestions.length > 0 ? (
+                        suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => selectSuggestion(s)}
+                            className="w-full px-5 py-4 text-left hover:bg-amber-600/20 text-sm text-amber-100 flex items-center gap-3 transition-colors border-b border-amber-900/10 last:border-0 group/item"
+                          >
+                            <div className="bg-amber-900/30 p-2 rounded-full group-hover/item:bg-amber-500/40 transition-colors">
+                              <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                              </svg>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{s.fullName}</span>
+                              <span className="text-[10px] uppercase text-amber-100/40 tracking-wider">Astrological Pivot Point</span>
+                            </div>
+                          </button>
+                        ))
+                      ) : locationInput.length >= 3 ? (
+                        <div className="px-5 py-8 text-center text-amber-100/30 italic text-sm">
+                           {t.noResults}
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                  
                   {formErrors.location && <p className="text-red-400 text-[10px] uppercase tracking-wider ml-1">{formErrors.location}</p>}
                 </div>
+
                 {!result && !loading && (
                   <div className="flex justify-center pt-4">
                     <button 
                       type="submit"
-                      className="bg-gradient-to-r from-amber-700 to-amber-900 text-white px-10 py-4 rounded-full font-cinzel tracking-widest hover:scale-105 transition-all shadow-xl"
+                      className="bg-gradient-to-r from-amber-700 to-amber-900 text-white px-10 py-4 rounded-full font-cinzel tracking-widest hover:scale-105 transition-all shadow-xl active:scale-95"
                     >
                       {t.generateChart}
                     </button>
@@ -420,7 +516,7 @@ const App: React.FC = () => {
                   )}
                 </button>
                 <button 
-                  onClick={() => { setResult(null); setImage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); setFormErrors({}); }}
+                  onClick={() => { setResult(null); setImage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); setFormErrors({}); setLocationInput(''); setLocationSelected(false); }}
                   className="text-amber-400/50 hover:text-amber-400 font-cinzel tracking-[0.2em] uppercase text-xs transition-colors px-6 py-3"
                 >
                   {t.newConsultation}
