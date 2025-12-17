@@ -11,7 +11,7 @@
     <!-- SEO Primary Meta Tags -->
     <title>Celestial Insights | AI Astrology Birth Chart Reader</title>
     <meta name="title" content="Celestial Insights | AI Astrology Birth Chart Reader" />
-    <meta name="description" content="Unlock your cosmic destiny with Celestial Insights. Use advanced AI to interpret your natal birth chart images or birth details for deep personality and career guidance." />
+    <meta name="description" content="Unlock your cosmic destiny with Celestial Insights. Use advanced AI to interpret your natal birth chart or birth details for deep personality and life path guidance." />
     <meta name="keywords" content="astrology, birth chart, natal chart, AI astrology, gemini ai, horoscope, spiritual guidance, zodiac" />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://celestial-insights.app" />
@@ -23,69 +23,27 @@
     <meta property="og:description" content="Decode your stars with AI. Instant natal chart readings and spiritual insights." />
     <meta property="og:image" content="https://celestial-insights.app/og-image.jpg" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://celestial-insights.app" />
-    <meta property="twitter:title" content="Celestial Insights | AI Astrology Chart Reader" />
-    <meta property="twitter:description" content="Decode your stars with AI. Instant natal chart readings and spiritual insights." />
-    <meta property="twitter:image" content="https://celestial-insights.app/og-image.jpg" />
-
-    <!-- Structured Data (Schema.org) -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Celestial Insights",
-      "operatingSystem": "Web, Android, iOS",
-      "applicationCategory": "Spiritual/LifestyleApplication",
-      "description": "An AI-powered astrology application that interprets natal charts and provides spiritual insights.",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      }
-    }
-    </script>
-
     <link rel="manifest" href="manifest.json" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Quicksand:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
       body {
-        margin: 0;
-        padding: 0;
-        background-color: #050510;
-        color: #e0e0e0;
+        margin: 0; padding: 0;
+        background-color: #050510; color: #e0e0e0;
         font-family: 'Quicksand', sans-serif;
         overflow-x: hidden;
       }
-      .font-cinzel {
-        font-family: 'Cinzel', serif;
-      }
+      .font-cinzel { font-family: 'Cinzel', serif; }
       @keyframes twinkle {
         0%, 100% { opacity: 0.3; transform: scale(1); }
         50% { opacity: 1; transform: scale(1.1); }
       }
       .star {
-        position: absolute;
-        background: white;
-        border-radius: 50%;
+        position: absolute; background: white; border-radius: 50%;
         animation: twinkle var(--duration) infinite ease-in-out;
       }
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
-      }
-      @media print {
-        .no-print { display: none !important; }
-        body { background: white !important; color: black !important; }
-        .bg-black\/60 { background: white !important; border: none !important; }
-        .text-gray-200 { color: #1a1a1a !important; }
-        .text-amber-400 { color: #854d0e !important; }
-        .text-amber-300 { color: #713f12 !important; }
-        .text-amber-200 { color: #451a03 !important; }
-      }
+      ::-webkit-scrollbar { width: 4px; background: transparent; }
+      ::-webkit-scrollbar-thumb { background: rgba(251, 191, 36, 0.1); border-radius: 10px; }
     </style>
     <script type="importmap">
     {
