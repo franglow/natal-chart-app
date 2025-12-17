@@ -3,14 +3,16 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import StarBackground from './components/StarBackground';
 import { analyzeChart, BirthData, getDetectedLanguage, searchLocations, LocationSuggestion, generateChartImage } from './services/geminiService';
 import MarkdownRenderer from './components/MarkdownRenderer';
+import CosmicVoice from './components/CosmicVoice';
 
-type Mode = 'image' | 'manual';
+type Mode = 'image' | 'manual' | 'voice';
 
 const translations = {
   en: {
     subtitle: "Natal Chart AI Interpretation",
     visualChart: "Visual Chart",
     birthDetails: "Birth Details",
+    etherealVoice: "Ethereal Voice",
     cosmicVision: "Cosmic Vision",
     scanPrompt: "Scan your natal chart image for an instant reading.",
     selectImage: "Select Image",
@@ -42,6 +44,7 @@ const translations = {
     subtitle: "Interpretación de Carta Natal con IA",
     visualChart: "Carta Visual",
     birthDetails: "Datos de Nacimiento",
+    etherealVoice: "Voz Etérea",
     cosmicVision: "Visión Cósmica",
     scanPrompt: "Escanea la imagen de tu carta natal para una lectura instantánea.",
     selectImage: "Seleccionar Imagen",
@@ -145,7 +148,6 @@ const App: React.FC = () => {
       setResult(analysis);
       setUploadAttempts(0); // Reset on success
 
-      // If manual mode, generate a beautiful chart image too
       if (typeof input !== 'string') {
         try {
           const genImg = await generateChartImage(input);
@@ -218,16 +220,17 @@ const App: React.FC = () => {
         )}
 
         {!result && !loading && (
-          <div className="glass-card bg-black/40 border border-amber-900/20 rounded-[3rem] p-6 md:p-12 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] mb-12 animate-fade-in relative group overflow-hidden">
+          <div className="glass-card bg-black/40 border border-amber-900/20 rounded-[3rem] p-6 md:p-8 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7)] mb-12 animate-fade-in relative group overflow-hidden">
             <div className="absolute -top-24 -left-24 w-64 h-64 bg-amber-500/10 rounded-full blur-[100px] pointer-events-none transition-opacity group-hover:opacity-100 opacity-60"></div>
             <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none transition-opacity group-hover:opacity-100 opacity-60"></div>
 
-            <div className="flex justify-center gap-1 bg-black/60 p-1.5 rounded-full border border-amber-900/20 mb-12 w-fit mx-auto shadow-2xl backdrop-blur-xl">
-              <button onClick={() => { setMode('manual'); setError(null); }} className={`px-10 py-3.5 rounded-full text-[10px] md:text-xs font-cinzel tracking-[0.25em] transition-all uppercase ${mode === 'manual' ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'text-amber-100/30 hover:text-amber-100/60'}`}>{t.birthDetails}</button>
-              <button onClick={() => { setMode('image'); setError(null); }} className={`px-10 py-3.5 rounded-full text-[10px] md:text-xs font-cinzel tracking-[0.25em] transition-all uppercase ${mode === 'image' ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'text-amber-100/30 hover:text-amber-100/60'}`}>{t.visualChart}</button>
+            <div className="flex flex-wrap justify-center gap-1 bg-black/60 p-1.5 rounded-3xl md:rounded-full border border-amber-900/20 mb-12 w-fit mx-auto shadow-2xl backdrop-blur-xl">
+              <button onClick={() => { setMode('manual'); setError(null); }} className={`px-6 md:px-10 py-3.5 rounded-full text-[9px] md:text-xs font-cinzel tracking-[0.25em] transition-all uppercase ${mode === 'manual' ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'text-amber-100/30 hover:text-amber-100/60'}`}>{t.birthDetails}</button>
+              <button onClick={() => { setMode('image'); setError(null); }} className={`px-6 md:px-10 py-3.5 rounded-full text-[9px] md:text-xs font-cinzel tracking-[0.25em] transition-all uppercase ${mode === 'image' ? 'bg-gradient-to-br from-amber-500 to-amber-700 text-white shadow-[0_0_20px_rgba(251,191,36,0.3)]' : 'text-amber-100/30 hover:text-amber-100/60'}`}>{t.visualChart}</button>
+              <button onClick={() => { setMode('voice'); setError(null); }} className={`px-6 md:px-10 py-3.5 rounded-full text-[9px] md:text-xs font-cinzel tracking-[0.25em] transition-all uppercase ${mode === 'voice' ? 'bg-gradient-to-br from-purple-500 to-indigo-700 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]' : 'text-amber-100/30 hover:text-amber-100/60'}`}>{t.etherealVoice}</button>
             </div>
 
-            {mode === 'manual' ? (
+            {mode === 'manual' && (
               <form onSubmit={handleManualSubmit} className="space-y-10 max-w-2xl mx-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <div className="space-y-4">
@@ -271,7 +274,9 @@ const App: React.FC = () => {
                 </div>
                 <button type="submit" className="w-full bg-gradient-to-r from-amber-700 via-amber-600 to-amber-800 text-white py-6 rounded-[2rem] font-cinzel tracking-[0.5em] hover:from-amber-600 hover:to-amber-700 transition-all uppercase shadow-[0_15px_40px_rgba(120,60,20,0.4)] active:scale-[0.97] mt-6 text-xs md:text-sm font-bold border border-amber-500/20">{t.generateChart}</button>
               </form>
-            ) : (
+            )}
+
+            {mode === 'image' && (
               <div className="max-w-xl mx-auto py-16 px-8 border-2 border-dashed border-amber-900/30 rounded-[3rem] bg-amber-900/5 group hover:border-amber-500/50 transition-all duration-1000 text-center relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-amber-900/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <label className="cursor-pointer relative z-10 block">
@@ -300,6 +305,8 @@ const App: React.FC = () => {
                 </label>
               </div>
             )}
+
+            {mode === 'voice' && <CosmicVoice />}
           </div>
         )}
 
