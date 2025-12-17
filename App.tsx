@@ -27,8 +27,9 @@ const translations = {
     cookieTitle: "Celestial Cookies",
     cookieText: "We use local data for performance and compliance.",
     accept: "Accept",
-    invalidChart: "The stars are clouded. This image does not appear to be a clear natal chart.",
-    retryWarning: "The cosmic alignment is difficult to perceive through this image. Perhaps the 'Manual Path' would be clearer?",
+    invalidChart: "The Veil of Mystery is too thick. This image does not resonate as a clear natal chart for interpretation.",
+    retryWarning: "The stars remain obscured. To find your destiny, we recommend switching to the 'Manual Path' for a more precise alignment.",
+    switchToManual: "Switch to Manual Path",
     etherealSources: "Ethereal Sources",
     sourceText: "This interpretation blends ancient Western Astrology principles with advanced AI pattern recognition. Visuals are synthesized via Generative Intelligence to match your unique vibrations.",
     visualAura: "Aura Reference",
@@ -57,8 +58,9 @@ const translations = {
     cookieTitle: "Cookies Celestiales",
     cookieText: "Usamos datos locales para rendimiento y cumplimiento.",
     accept: "Aceptar",
-    invalidChart: "Las estrellas están nubladas. Esta imagen no parece ser una carta natal clara.",
-    retryWarning: "La alineación cósmica es difícil de percibir a través de esta imagen. ¿Quizás el 'Camino Manual' sea más claro?",
+    invalidChart: "El Velo del Misterio es demasiado denso. Esta imagen no resuena como una carta natal clara para la interpretación.",
+    retryWarning: "Las estrellas permanecen ocultas. Para encontrar tu destino, recomendamos cambiar al 'Camino Manual' para una alineación más precisa.",
+    switchToManual: "Cambiar al Camino Manual",
     etherealSources: "Fuentes Etéreas",
     sourceText: "Esta interpretación combina principios antiguos de la Astrología Occidental con reconocimiento de patrones de IA avanzado. Los visuales son sintetizados vía Inteligencia Generativa para coincidir con tus vibraciones únicas.",
     visualAura: "Referencia de Aura",
@@ -133,13 +135,15 @@ const App: React.FC = () => {
       const analysis = await analyzeChart(input);
       
       if (analysis.includes("ERROR_INVALID_CHART")) {
-        setUploadAttempts(prev => prev + 1);
-        setError(uploadAttempts >= 1 ? t.retryWarning : t.invalidChart);
+        const newAttempts = uploadAttempts + 1;
+        setUploadAttempts(newAttempts);
+        setError(newAttempts >= 2 ? t.retryWarning : t.invalidChart);
         setLoading(false);
         return;
       }
 
       setResult(analysis);
+      setUploadAttempts(0); // Reset on success
 
       // If manual mode, generate a beautiful chart image too
       if (typeof input !== 'string') {
@@ -165,6 +169,7 @@ const App: React.FC = () => {
     setGeneratedImage(null);
     setBirthData({ date: '', time: '', location: '' });
     setLocationInput('');
+    setUploadAttempts(0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setTimeout(() => dateInputRef.current?.focus(), 150);
   };
@@ -172,11 +177,9 @@ const App: React.FC = () => {
   const handleCookieAccept = () => {
     localStorage.setItem('celestial_cookie_consent', 'true');
     setShowCookieBanner(false);
-    // Restoration focus with priority
     if (mode === 'manual' && dateInputRef.current) {
       setTimeout(() => {
         dateInputRef.current?.focus();
-        // Force the layout to recognize the focus on Apple devices
         dateInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
@@ -195,15 +198,20 @@ const App: React.FC = () => {
         </header>
 
         {error && (
-          <div className="mb-6 p-6 bg-red-950/20 border border-red-500/30 rounded-3xl text-red-200 text-center animate-fade-in text-sm font-cinzel tracking-wider backdrop-blur-xl shadow-2xl">
-            <span className="block mb-2 text-lg">⚠</span>
-            {error}
+          <div className="mb-8 p-8 bg-red-950/20 border border-red-500/30 rounded-[2.5rem] text-red-100 text-center animate-fade-in font-cinzel tracking-wider backdrop-blur-xl shadow-2xl ring-1 ring-red-500/20">
+            <div className="mb-4 inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 text-xl">
+              ⚠
+            </div>
+            <p className="text-sm md:text-base leading-relaxed max-w-lg mx-auto mb-6">
+              {error}
+            </p>
             {uploadAttempts >= 1 && mode === 'image' && (
               <button 
-                onClick={() => setMode('manual')}
-                className="mt-4 block mx-auto text-amber-400 hover:text-amber-300 underline underline-offset-4 decoration-amber-500/30"
+                onClick={() => { setMode('manual'); setError(null); }}
+                className="group relative px-8 py-3 bg-gradient-to-r from-amber-600 to-amber-800 rounded-full text-[10px] md:text-xs font-cinzel uppercase tracking-[0.2em] text-white shadow-lg hover:shadow-amber-500/20 transition-all hover:scale-105 active:scale-95 border border-amber-500/30"
               >
-                {t.birthDetails} →
+                {t.switchToManual}
+                <span className="ml-2 transition-transform group-hover:translate-x-1 inline-block">→</span>
               </button>
             )}
           </div>
@@ -318,7 +326,6 @@ const App: React.FC = () => {
               
               <MarkdownRenderer content={result} />
 
-              {/* Visual Reference Section - Shown AFTER Text */}
               <div className="mt-20 space-y-12 animate-fade-in" style={{ animationDelay: '0.5s' }}>
                 <div className="flex items-center gap-6">
                   <div className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-900/50"></div>
@@ -340,7 +347,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Sources / Cosmic Bibliography - Shown AFTER Image */}
               <div className="mt-24 bg-gradient-to-b from-amber-950/5 to-transparent border border-amber-900/20 rounded-[2.5rem] p-10 md:p-14 text-center space-y-6 animate-fade-in" style={{ animationDelay: '0.8s' }}>
                 <div className="inline-block px-6 py-1.5 border border-amber-500/20 rounded-full text-amber-500/50 text-[10px] uppercase tracking-[0.4em] font-cinzel mb-2">
                   {t.etherealSources}

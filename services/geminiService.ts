@@ -59,7 +59,8 @@ export const searchLocations = async (query: string): Promise<LocationSuggestion
 
 export const generateChartImage = async (data: BirthData): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `A mystical, high-end, aesthetic natal chart illustration. Dark cosmic background with nebulae in deep purple and indigo. Gold celestial lines connecting zodiac symbols. Central sun-like glow. The chart should represent a birth at ${data.location} on ${data.date} at ${data.time}. Artistic style: Modern Spiritualism, 4K, beautiful textures.`;
+  // Updated prompt to be more representative of a technical but aesthetic chart
+  const prompt = `A mystical and professional natal chart wheel illustration. The image features a prominent circular zodiac wheel with 12 sections. Intricate gold and copper celestial lines create a complex geometric web of aspects in the center. Small, elegant icons of planets and zodiac symbols (Aries, Leo, etc.) are positioned around the wheel. Dark cosmic background with faint nebula dust in deep indigo and obsidian. The aesthetic is "Sacred Geometry meets Modern High-End Astrology". No messy text, just symbols and lines. 4K, realistic paper or parchment texture under a glass-like finish.`;
   
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
