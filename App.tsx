@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [isStandalone, setIsStandalone] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [copied, setCopied] = useState(false);
   
   const reportRef = useRef<HTMLDivElement>(null);
 
@@ -66,20 +67,33 @@ const App: React.FC = () => {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
+    const shareData = {
+      title: 'Celestial Insights',
+      text: 'Descubre tu destino con esta IA de Astrología.',
+      url: window.location.origin + window.location.pathname,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
-        await navigator.share({
-          title: 'Celestial Insights',
-          text: 'Descubre tu destino con esta IA de Astrología.',
-          url: window.location.href,
-        });
+        await navigator.share(shareData);
       } catch (err) {
-        console.log('Error sharing', err);
+        if ((err as Error).name !== 'AbortError') {
+          copyToClipboard();
+        }
       }
     } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('¡Enlace copiado al portapapeles! Envíalo a tus otros dispositivos.');
+      copyToClipboard();
     }
+  };
+
+  const copyToClipboard = () => {
+    const url = window.location.origin + window.location.pathname;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      alert("No se pudo copiar el enlace. Por favor, copia la URL manualmente.");
+    });
   };
 
   const downloadPDF = () => {
@@ -304,12 +318,23 @@ const App: React.FC = () => {
         <div className="flex justify-center gap-4 mb-6">
           <button 
             onClick={handleShare}
-            className="flex items-center gap-2 bg-black/40 backdrop-blur-md border border-amber-900/30 px-5 py-2.5 rounded-full text-amber-200 hover:bg-amber-900/20 transition-all shadow-lg text-xs font-cinzel tracking-widest uppercase"
+            className={`flex items-center gap-2 bg-black/40 backdrop-blur-md border border-amber-900/30 px-5 py-2.5 rounded-full transition-all shadow-lg text-xs font-cinzel tracking-widest uppercase ${copied ? 'text-green-400 border-green-500/50 scale-105' : 'text-amber-200 hover:bg-amber-900/20'}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Compartir
+            {copied ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                ¡Copiado!
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+                Compartir App
+              </>
+            )}
           </button>
           <button 
             onClick={() => setShowHelp(true)}
@@ -318,7 +343,7 @@ const App: React.FC = () => {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Instrucciones
+            Instalar
           </button>
         </div>
         <div className="text-center text-amber-100/30 text-[10px] tracking-widest uppercase">
@@ -331,7 +356,8 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 no-print">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowHelp(false)}></div>
           <div className="relative bg-[#0a0a2a] border border-amber-500/30 rounded-[2.5rem] p-8 max-w-lg w-full shadow-[0_0_50px_rgba(252,211,77,0.1)] overflow-y-auto max-h-[90vh]">
-            <h2 className="text-3xl font-cinzel text-amber-200 mb-6 text-center">Instalar en otros dispositivos</h2>
+            <h2 className="text-3xl font-cinzel text-amber-200 mb-2 text-center">Lleva la App Contigo</h2>
+            <p className="text-amber-100/40 text-center text-xs mb-8 italic">Para instalarla en otros dispositivos, envíales el enlace usando el botón "Compartir".</p>
             
             <div className="space-y-8">
               <section>
