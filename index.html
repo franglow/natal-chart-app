@@ -7,8 +7,47 @@
     <meta name="theme-color" content="#050510" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <!-- SEO Primary Meta Tags -->
+    <title>Celestial Insights | AI Astrology Birth Chart Reader</title>
+    <meta name="title" content="Celestial Insights | AI Astrology Birth Chart Reader" />
+    <meta name="description" content="Unlock your cosmic destiny with Celestial Insights. Use advanced AI to interpret your natal birth chart images or birth details for deep personality and career guidance." />
+    <meta name="keywords" content="astrology, birth chart, natal chart, AI astrology, gemini ai, horoscope, spiritual guidance, zodiac" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://celestial-insights.app" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://celestial-insights.app" />
+    <meta property="og:title" content="Celestial Insights | AI Astrology Chart Reader" />
+    <meta property="og:description" content="Decode your stars with AI. Instant natal chart readings and spiritual insights." />
+    <meta property="og:image" content="https://celestial-insights.app/og-image.jpg" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://celestial-insights.app" />
+    <meta property="twitter:title" content="Celestial Insights | AI Astrology Chart Reader" />
+    <meta property="twitter:description" content="Decode your stars with AI. Instant natal chart readings and spiritual insights." />
+    <meta property="twitter:image" content="https://celestial-insights.app/og-image.jpg" />
+
+    <!-- Structured Data (Schema.org) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Celestial Insights",
+      "operatingSystem": "Web, Android, iOS",
+      "applicationCategory": "Spiritual/LifestyleApplication",
+      "description": "An AI-powered astrology application that interprets natal charts and provides spiritual insights.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
     <link rel="manifest" href="manifest.json" />
-    <title>Celestial Insights</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Quicksand:wght@300;400;500&display=swap" rel="stylesheet">
@@ -34,13 +73,10 @@
         border-radius: 50%;
         animation: twinkle var(--duration) infinite ease-in-out;
       }
-      /* Hide scrollbar for PWA feel */
       ::-webkit-scrollbar {
         width: 0px;
         background: transparent;
       }
-
-      /* Print styles to ensure PDF quality */
       @media print {
         .no-print { display: none !important; }
         body { background: white !important; color: black !important; }
